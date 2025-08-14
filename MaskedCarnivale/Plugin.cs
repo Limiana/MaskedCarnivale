@@ -44,7 +44,6 @@ public unsafe class Plugin : IDalamudPlugin
 
     public string Name => "MaskedCarnivale";
     private const string CommandName = "/carnivale";
-
     public Configuration cfg { get; init; }
 
     public readonly WindowSystem WindowSystem = new("MaskedCarnivale");
@@ -66,8 +65,10 @@ public unsafe class Plugin : IDalamudPlugin
     private RenderObject? orthogSquare { get; set; } = null;
     private bool isEnabled = false;
     private int shareMemType = 0;
-    private int gameWindowWithUI = 107;
+    private int gameWindowWithUI = 106;
     private int gameWindowWithoutUI = 71;
+
+    public static int RenderIndexOverride = 0;
 
     [StructLayout(LayoutKind.Sequential)]
     struct OutputWindowSetup
@@ -168,6 +169,14 @@ public unsafe class Plugin : IDalamudPlugin
 
         ConfigWindow.Dispose();
         CommandManager.RemoveHandler(CommandName);
+        try
+        {
+            Job.Dispose();
+        }
+        catch(Exception e)
+        {
+            Log.Error(e.ToString());
+        }
     }
 
     private void OnCommand(string command, string argument)
@@ -296,13 +305,37 @@ public unsafe class Plugin : IDalamudPlugin
         smm.CloseSharedMemory();
     }
 
+    private Job Job
+    {
+        get
+        {
+            field ??= new();
+            return field;
+        }
+    }
+
     private void Enable()
     {
         string OutputWindow = Path.Combine(PluginInterface!.AssemblyLocation.DirectoryName!, "outputwindow.exe");
-        if (File.Exists(OutputWindow))
-            Process.Start(OutputWindow);
+        if(File.Exists(OutputWindow))
+        {
+            var proc = Process.Start(OutputWindow);
+            if(proc != null)
+            {
+                try
+                {
+                    Job.AddProcess(proc);
+                }
+                catch(Exception e)
+                {
+                    Log!.Error(e.ToString());
+                }
+            }
+        }
         else
+        {
             Log!.Error($"Can not find 'outputwindow.exe' in directory {PluginInterface!.AssemblyLocation.DirectoryName!}");
+        }
     }
 
     private void Disable()
@@ -459,7 +492,12 @@ public unsafe class Plugin : IDalamudPlugin
             else
                 cfg.renderIndex = gameWindowWithoutUI;
 
-            cfg.renderIndex = Math.Min(Math.Max(cfg.renderIndex, 0), 129);
+            if(RenderIndexOverride != 0)
+            {
+                cfg.renderIndex = RenderIndexOverride;
+            }
+
+            cfg.renderIndex = Math.Clamp(cfg.renderIndex, 0, 128);
 
             if (oldRenderIndex != cfg.renderIndex)
             {

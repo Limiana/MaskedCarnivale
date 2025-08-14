@@ -2,7 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Numerics;
 using Dalamud.Interface.Windowing;
-using ImGuiNET;
+using Dalamud.Bindings.ImGui;
 
 namespace MaskedCarnivale.Windows;
 
@@ -82,6 +82,7 @@ public class ConfigWindow : Window, IDisposable
                 cfg.Save();
             }
             */
+            ImGui.InputInt("RenderIndexOverride", ref Plugin.RenderIndexOverride, 1, 1);
         }
         ImGui.EndChild();
     }

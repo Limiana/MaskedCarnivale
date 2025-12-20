@@ -24,7 +24,7 @@ public sealed unsafe class Job : IDisposable
         {
             fixed(char* pName = name)
             {
-                _handle = FXWindows.CreateJobObject(null, (ushort*)pName);
+                _handle = FXWindows.CreateJobObject(null, pName);
             }
         }
 

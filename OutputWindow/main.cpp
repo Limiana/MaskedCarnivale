@@ -353,7 +353,7 @@ bool ResizeMoveWindow()
         dx11.devcon->OMSetRenderTargets(1, &nullRTV, NULL);
         dx11.destroyBackBuffer();
         dx11.devcon->Flush();
-        if (!dx11.resizeSwapchain(outputWindowData->newWidth, outputWindowData->newWidth))
+        if (!dx11.resizeSwapchain(outputWindowData->newWidth, outputWindowData->newHeight))
             return false;
         if (!dx11.createBackBuffer())
             return false;

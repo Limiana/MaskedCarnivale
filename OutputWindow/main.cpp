@@ -6,6 +6,13 @@
 #include "cShaderData.h"
 #include "cRenderObject.h"
 #include "stBasicTexture.h"
+#include <windows.h>
+#include <shlwapi.h>
+#pragma comment(lib, "Shlwapi.lib")
+#include <string>
+#include <fstream>
+#include <sstream>
+#include <vector>
 
 struct OutputWindowSetup
 {
@@ -61,7 +68,6 @@ HWND hWnd = 0;
 HINSTANCE hInstance = 0;
 short outputClassId = 0;
 
-std::wstring windowName = L"MaskedCarnivale";
 std::wstring windowClass = L"OutputWindow";
 
 stDX11 dx11 = stDX11();
@@ -92,6 +98,71 @@ void DestroyTextures();
 bool CreateTextureShared(int width, int height);
 void DestroyTextureShared();
 
+// Replacement function (no std::filesystem)
+std::wstring GetWindowName()
+{
+    const std::wstring defaultName = L"MaskedCarnivale";
+
+    // Get %APPDATA%
+    wchar_t appdataBuf[MAX_PATH];
+    DWORD n = GetEnvironmentVariableW(L"APPDATA", appdataBuf, MAX_PATH);
+    if (n == 0 || n >= MAX_PATH) {
+        return defaultName;
+    }
+
+    // Build path: %APPDATA%\XIVLauncher\pluginConfigs\MaskedCarnivalle\windowname.txt
+    std::wstring filePath = std::wstring(appdataBuf) + L"\\XIVLauncher\\pluginConfigs\\MaskedCarnivalle\\windowname.txt";
+
+    // Check existence (from shlwapi)
+    if (!PathFileExistsW(filePath.c_str())) {
+        return defaultName;
+    }
+
+    // Read file as binary into std::string (we expect UTF-8)
+    std::ifstream file(filePath, std::ios::binary);
+    if (!file.is_open()) {
+        return defaultName;
+    }
+    std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+
+    // Remove UTF-8 BOM if present
+    if (content.size() >= 3 &&
+        static_cast<unsigned char>(content[0]) == 0xEF &&
+        static_cast<unsigned char>(content[1]) == 0xBB &&
+        static_cast<unsigned char>(content[2]) == 0xBF)
+    {
+        content.erase(0, 3);
+    }
+
+    // Trim whitespace (both ends)
+    auto is_space = [](char c) -> bool {
+        return c == ' ' || c == '\n' || c == '\r' || c == '\t' || c == '\v' || c == '\f';
+        };
+    size_t start = 0;
+    while (start < content.size() && is_space(content[start])) {
+        ++start;
+    }
+    size_t end = content.size();
+    while (end > start && is_space(content[end - 1])) {
+        --end;
+    }
+    if (start >= end) {
+        return defaultName; // empty or all-space
+    }
+    std::string trimmed = content.substr(start, end - start);
+
+    // Convert UTF-8 trimmed -> wide string (UTF-16) for use with Win32
+    int required = MultiByteToWideChar(CP_UTF8, 0, trimmed.data(), (int)trimmed.size(), nullptr, 0);
+    if (required == 0) {
+        return defaultName;
+    }
+    std::wstring result;
+    result.resize(required);
+    MultiByteToWideChar(CP_UTF8, 0, trimmed.data(), (int)trimmed.size(), &result[0], required);
+
+    return result;
+}
+
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nShowCmd)
 {
     int shareMemType = OpenSharedMemory(&hMapFile, (unsigned char**)&outputWindowData, sizeof(OutputWindowSetup), "DebugTextureOutputWindow");
@@ -100,7 +171,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
     if(outputWindowData->width == 0)
         outputWindowData->Reset();
 
-    if (!CreateOutputWindow(hInstance, windowClass, windowName, true, outputWindowData->width, outputWindowData->height))
+    if (!CreateOutputWindow(hInstance, windowClass, GetWindowName(), true, outputWindowData->width, outputWindowData->height))
         return false;
     if (!dx11.createDevice())
         return false;

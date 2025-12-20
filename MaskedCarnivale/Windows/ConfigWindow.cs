@@ -82,12 +82,16 @@ public class ConfigWindow : Window, IDisposable
                 cfg.Save();
             }
             */
+
+            WindowNameConfig.Draw();
+
             ImGui.InputInt("RenderIndexOverride", ref Plugin.RenderIndexOverride, 1, 1);
         }
         ImGui.EndChild();
     }
     private void ShowKofi()
     {
+        return;
         ImGui.BeginChild("Support", new Vector2(350, 50), true);
 
         ImGui.PushStyleColor(ImGuiCol.Button, 0xFF000000 | 0x005E5BFF);
